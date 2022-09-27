@@ -1,14 +1,14 @@
-use anyhow::Error;
-use srcapi_plus::api::{
-    query::{query, Query},
-    users::UserQuery,
-};
+use reqwest::Client;
+use srcapi_plus::api::client::SrcClient;
+use std::error::Error;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
-    let id = "j0ng00m8".to_string();
+async fn main() -> Result<(), Box<dyn Error>> {
+    let client = SrcClient::new(Client::new());
 
-    let user: UserQuery = query(Query::User { id }).await?;
+    let id = String::from("1xyy2qyx");
+
+    let user = client.get_user(id).await?;
 
     println!("{:#?}", user);
 

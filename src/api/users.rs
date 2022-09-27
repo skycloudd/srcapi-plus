@@ -1,12 +1,17 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct UserQuery {
-    data: User,
+pub(crate) struct Users_ {
+    pub(crate) data: Vec<User>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct User {
+pub(crate) struct User_ {
+    pub(crate) data: User,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct User {
     id: String,
     names: Names,
     #[serde(rename = "supporterAnimation")]
