@@ -1,10 +1,11 @@
-use super::BASE_URL;
-use reqwest::{Client, Url};
+use crate::client::SrcClient;
+use crate::BASE_URL;
+use reqwest::Url;
 use serde::de::DeserializeOwned;
 use std::error::Error;
 use thiserror::Error;
 
-pub(crate) async fn query<T>(client: &Client, query: &dyn Query) -> Result<T, Box<dyn Error>>
+pub async fn query<T>(client: &SrcClient, query: &dyn Query) -> Result<T, Box<dyn Error>>
 where
     T: DeserializeOwned,
 {
@@ -13,11 +14,39 @@ where
     url = url.join(&match query.query_type() {
         QueryType::User { ref id } => format!("users/{}", id),
         QueryType::Users => "users".to_string(),
+        QueryType::UserPBs { ref id } => format!("users/{}/personal-bests", id),
     })?;
 
-    for param in &query.params() {
-        url.query_pairs_mut()
-            .append_pair((&param.0).try_into()?, &param.1);
+    for param in query.params() {
+        let (name, value) = match param {
+            Parameter::Lookup(s) => (String::from("lookup"), s),
+            Parameter::Name(s) => (String::from("name"), s),
+            Parameter::Twitch(s) => (String::from("twitch"), s),
+            Parameter::Hitbox(s) => (String::from("hitbox"), s),
+            Parameter::Twitter(s) => (String::from("twitter"), s),
+            Parameter::Speedrunslive(s) => (String::from("speedrunslive"), s),
+            Parameter::OrderBy(o) => (
+                String::from("orderby"),
+                match o {
+                    OrderBy::NameInt => String::from("name.int"),
+                    OrderBy::NameJap => String::from("name.jap"),
+                    OrderBy::Signup => String::from("signup"),
+                    OrderBy::Role => String::from("role"),
+                },
+            ),
+            Parameter::Direction(o) => (
+                String::from("direction"),
+                match o {
+                    OrderDirection::Asc => String::from("asc"),
+                    OrderDirection::Desc => String::from("desc"),
+                },
+            ),
+            Parameter::Top(u) => (String::from("top"), u.to_string()),
+            Parameter::Series(s) => (String::from("series"), s),
+            Parameter::Game(s) => (String::from("game"), s),
+        };
+
+        url.query_pairs_mut().append_pair(&name, &value);
     }
 
     // validate url
@@ -43,36 +72,31 @@ where
                 .into());
             }
         }
+        QueryType::UserPBs { .. } => {}
     }
 
     Ok(serde_json::from_str(
-        &client.get(url).send().await?.text().await?,
+        &client.client.get(url).send().await?.text().await?,
     )?)
 }
 
-pub(crate) trait Query {
+pub trait Query {
     fn query_type(&self) -> QueryType;
     fn params(&self) -> Vec<Parameter>;
 }
 
 #[derive(Clone)]
-pub(crate) struct QueryData {
+pub struct QueryData {
     query_type: QueryType,
-    params: Vec<Parameter>,
+    pub params: Vec<Parameter>,
 }
 
 impl QueryData {
-    pub(crate) fn new(query_type: QueryType) -> Self {
+    pub fn new(query_type: QueryType) -> Self {
         Self {
             query_type,
             params: Vec::new(),
         }
-    }
-
-    pub(crate) fn param(&mut self, name: &str, value: String) -> Result<&mut Self, Box<dyn Error>> {
-        self.params.push((name.try_into()?, value));
-
-        Ok(self)
     }
 }
 
@@ -87,56 +111,40 @@ impl Query for QueryData {
 }
 
 #[derive(Clone)]
-pub(crate) enum QueryType {
+pub enum QueryType {
     User { id: String },
     Users,
+    UserPBs { id: String },
 }
-
-pub(crate) type Parameter = (ParamType, String);
 
 #[allow(dead_code)]
 #[derive(Clone)]
-pub(crate) enum ParamType {
-    Lookup,
-    Name,
-    Twitch,
-    Hitbox,
-    Twitter,
-    Speedrunslive,
+pub enum Parameter {
+    Lookup(String),
+    Name(String),
+    Twitch(String),
+    Hitbox(String),
+    Twitter(String),
+    Speedrunslive(String),
+    OrderBy(OrderBy),
+    Direction(OrderDirection),
+    Top(u32),
+    Series(String),
+    Game(String),
 }
 
-impl TryFrom<&ParamType> for &str {
-    type Error = Box<dyn Error>;
-
-    fn try_from(name: &ParamType) -> Result<Self, Self::Error> {
-        match name {
-            ParamType::Lookup => Ok("lookup"),
-            ParamType::Name => Ok("name"),
-            ParamType::Twitch => Ok("twitch"),
-            ParamType::Hitbox => Ok("hitbox"),
-            ParamType::Twitter => Ok("twitter"),
-            ParamType::Speedrunslive => Ok("speedrunslive"),
-        }
-    }
+#[derive(Clone)]
+pub enum OrderBy {
+    NameInt,
+    NameJap,
+    Signup,
+    Role,
 }
 
-impl TryFrom<&str> for ParamType {
-    type Error = Box<dyn Error>;
-
-    fn try_from(name: &str) -> Result<Self, <ParamType as TryFrom<&str>>::Error> {
-        match name {
-            "lookup" => Ok(ParamType::Lookup),
-            "name" => Ok(ParamType::Name),
-            "twitch" => Ok(ParamType::Twitch),
-            "hitbox" => Ok(ParamType::Hitbox),
-            "twitter" => Ok(ParamType::Twitter),
-            "speedrunslive" => Ok(ParamType::Speedrunslive),
-            invalid => Err(QueryError::InvalidParamType {
-                param_type: invalid.to_string(),
-            }
-            .into()),
-        }
-    }
+#[derive(Clone)]
+pub enum OrderDirection {
+    Asc,
+    Desc,
 }
 
 #[allow(dead_code)]

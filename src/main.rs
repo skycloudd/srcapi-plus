@@ -1,16 +1,22 @@
-use reqwest::Client;
-use srcapi_plus::api::client::SrcClient;
+use srcapi_plus::client::SrcClient;
 use std::error::Error;
+use std::string::String;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let client = SrcClient::new(Client::new());
+    let client = SrcClient::new();
 
-    let id = String::from("1xyy2qyx");
+    let id = String::from("j0ng00m8");
 
-    let user = client.get_user(id).await?;
+    let users = client.get_user_pbs(id, None, None, None).await?;
 
-    println!("{:#?}", user);
+    for user in users {
+        println!(
+            "[{}] {}",
+            user.location.country.code.to_uppercase(),
+            user.names.international,
+        );
+    }
 
     Ok(())
 }
