@@ -1,17 +1,18 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
-    pub id: String,
+    pub id: UserId,
     pub names: Names,
     #[serde(rename = "supporterAnimation")]
     pub supporter_animation: bool,
-    pub pronouns: String,
-    pub weblink: String,
+    pub pronouns: Pronouns,
+    pub weblink: Weblink,
     #[serde(rename = "name-style")]
     pub name_style: NameStyle,
     pub role: Role,
-    pub signup: String,
+    pub signup: Option<DateTime<Utc>>,
     pub location: Location,
     pub twitch: Option<Social>,
     pub hitbox: Option<Social>,
@@ -23,9 +24,36 @@ pub struct User {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct UserId(String);
+
+impl std::fmt::Display for UserId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Names {
     pub international: String,
     pub japanese: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Pronouns(String);
+
+impl std::fmt::Display for Pronouns {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Weblink(String);
+
+impl std::fmt::Display for Weblink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "{}", self.0)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

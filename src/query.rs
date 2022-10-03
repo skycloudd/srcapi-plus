@@ -5,26 +5,28 @@ use serde::de::DeserializeOwned;
 use std::error::Error;
 use thiserror::Error;
 
-pub async fn query<T>(client: &SrcClient, query: &dyn Query) -> Result<T, Box<dyn Error>>
+pub async fn query<T>(client: &SrcClient, query: &QueryData) -> Result<T, Box<dyn Error>>
 where
     T: DeserializeOwned,
 {
     let mut url = Url::parse(BASE_URL)?;
 
-    url = url.join(&match query.query_type() {
+    url = url.join(&match query.query_type {
         QueryType::User { ref id } => format!("users/{}", id),
         QueryType::Users => "users".to_string(),
-        QueryType::UserPBs { ref id } => format!("users/{}/personal-bests", id),
+        // QueryType::UserPBs { ref id } => format!("users/{}/personal-bests", id),
+        QueryType::UserPBs { .. } => todo!(),
+        QueryType::Games => "games".to_string(),
     })?;
 
-    for param in query.params() {
+    for param in &query.params {
         let (name, value) = match param {
-            Parameter::Lookup(s) => (String::from("lookup"), s),
-            Parameter::Name(s) => (String::from("name"), s),
-            Parameter::Twitch(s) => (String::from("twitch"), s),
-            Parameter::Hitbox(s) => (String::from("hitbox"), s),
-            Parameter::Twitter(s) => (String::from("twitter"), s),
-            Parameter::Speedrunslive(s) => (String::from("speedrunslive"), s),
+            Parameter::Lookup(s) => (String::from("lookup"), s.clone()),
+            Parameter::Name(s) => (String::from("name"), s.clone()),
+            Parameter::Twitch(s) => (String::from("twitch"), s.clone()),
+            Parameter::Hitbox(s) => (String::from("hitbox"), s.clone()),
+            Parameter::Twitter(s) => (String::from("twitter"), s.clone()),
+            Parameter::Speedrunslive(s) => (String::from("speedrunslive"), s.clone()),
             Parameter::OrderBy(o) => (
                 String::from("orderby"),
                 match o {
@@ -41,9 +43,19 @@ where
                     OrderDirection::Desc => String::from("desc"),
                 },
             ),
-            Parameter::Top(u) => (String::from("top"), u.to_string()),
-            Parameter::Series(s) => (String::from("series"), s),
-            Parameter::Game(s) => (String::from("game"), s),
+            Parameter::Top(i) => (String::from("top"), i.to_string()),
+            Parameter::Series(s) => (String::from("series"), s.clone()),
+            Parameter::Game(s) => (String::from("game"), s.clone()),
+            Parameter::Abbreviation(s) => (String::from("abbreviation"), s.clone()),
+            Parameter::Released(i) => (String::from("released"), i.to_string()),
+            Parameter::Gametype(s) => (String::from("gametype"), s.clone()),
+            Parameter::Platform(s) => (String::from("platform"), s.clone()),
+            Parameter::Region(s) => (String::from("region"), s.clone()),
+            Parameter::Genre(s) => (String::from("genre"), s.clone()),
+            Parameter::Engine(s) => (String::from("engine"), s.clone()),
+            Parameter::Developer(s) => (String::from("developer"), s.clone()),
+            Parameter::Publisher(s) => (String::from("publisher"), s.clone()),
+            Parameter::Moderator(s) => (String::from("moderator"), s.clone()),
         };
 
         url.query_pairs_mut().append_pair(&name, &value);
@@ -53,7 +65,7 @@ where
 
     let count = url.query_pairs().count();
 
-    match query.query_type() {
+    match query.query_type {
         QueryType::User { .. } => {
             if count > 0 {
                 return Err(QueryError::WrongParamCountNeq {
@@ -73,6 +85,15 @@ where
             }
         }
         QueryType::UserPBs { .. } => {}
+        QueryType::Games => {
+            if count == 0 {
+                return Err(QueryError::WrongParamCountGt {
+                    expected: 0,
+                    got: count,
+                }
+                .into());
+            }
+        }
     }
 
     Ok(serde_json::from_str(
@@ -80,14 +101,9 @@ where
     )?)
 }
 
-pub trait Query {
-    fn query_type(&self) -> QueryType;
-    fn params(&self) -> Vec<Parameter>;
-}
-
 #[derive(Clone)]
 pub struct QueryData {
-    query_type: QueryType,
+    pub query_type: QueryType,
     pub params: Vec<Parameter>,
 }
 
@@ -100,21 +116,13 @@ impl QueryData {
     }
 }
 
-impl Query for QueryData {
-    fn query_type(&self) -> QueryType {
-        self.query_type.clone()
-    }
-
-    fn params(&self) -> Vec<Parameter> {
-        self.params.clone()
-    }
-}
-
 #[derive(Clone)]
 pub enum QueryType {
     User { id: String },
     Users,
     UserPBs { id: String },
+
+    Games,
 }
 
 #[allow(dead_code)]
@@ -128,9 +136,19 @@ pub enum Parameter {
     Speedrunslive(String),
     OrderBy(OrderBy),
     Direction(OrderDirection),
-    Top(u32),
+    Top(i32),
     Series(String),
     Game(String),
+    Abbreviation(String),
+    Released(i32),
+    Gametype(String),
+    Platform(String),
+    Region(String),
+    Genre(String),
+    Engine(String),
+    Developer(String),
+    Publisher(String),
+    Moderator(String),
 }
 
 #[derive(Clone)]
